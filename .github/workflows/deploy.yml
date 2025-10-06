@@ -33,30 +33,18 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          # Create a tar.gz file excluding unnecessary files
+          # Create a zip file excluding unnecessary files
           echo "Creating deployment archive..."
+          zip -r deploy.zip . \
+            -x "node_modules/*" \
+            -x ".git/*" \
+            -x "dist/*" \
+            -x ".github/*" \
+            -x "*.log" \
+            -x ".env*" \
+            -x "docker-compose.dev.yml"
           
-          # Get the directory name
-          DIR_NAME=$(basename "$PWD")
-          
-          # Create archive from parent directory to avoid "file changed" issues
-          cd ..
-          tar -czf deploy.tar.gz \
-            --exclude="$DIR_NAME/node_modules" \
-            --exclude="$DIR_NAME/.git" \
-            --exclude="$DIR_NAME/dist" \
-            --exclude="$DIR_NAME/.github" \
-            --exclude="$DIR_NAME/*.log" \
-            --exclude="$DIR_NAME/.env*" \
-            --exclude="$DIR_NAME/docker-compose.dev.yml" \
-            --exclude="$DIR_NAME/deploy.tar.gz" \
-            "$DIR_NAME"
-          
-          # Move archive back to working directory
-          mv deploy.tar.gz "$DIR_NAME/"
-          cd "$DIR_NAME"
-          
-          ls -lh deploy.tar.gz
+          ls -lh deploy.zip
           echo "Archive created successfully"
 
       - name: Transfer files to VPS
@@ -71,7 +59,7 @@ jobs:
           
           # Transfer the deployment archive
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -P $SSH_PORT \
-            deploy.tar.gz \
+            deploy.zip \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/debian/personal-assistant/
 
       - name: Extract and deploy on VPS
@@ -83,9 +71,16 @@ jobs:
           
           cd /home/debian/personal-assistant
           
+          # Install unzip if not present
+          if ! command -v unzip &> /dev/null; then
+            echo "Installing unzip..."
+            sudo apt-get update -qq
+            sudo apt-get install -y unzip
+          fi
+          
           echo "Extracting deployment archive..."
-          tar -xzf deploy.tar.gz
-          rm deploy.tar.gz
+          unzip -o deploy.zip
+          rm deploy.zip
           
           echo "Making deploy script executable..."
           chmod +x deploy.sh
@@ -118,5 +113,5 @@ jobs:
         run: |
           # Remove sensitive files
           rm -f ~/.ssh/deploy_key
-          rm -f deploy.tar.gz
+          rm -f deploy.zip
 
