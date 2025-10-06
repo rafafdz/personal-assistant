@@ -35,16 +35,26 @@ jobs:
         run: |
           # Create a tar.gz file excluding unnecessary files
           echo "Creating deployment archive..."
+          
+          # Get the directory name
+          DIR_NAME=$(basename "$PWD")
+          
+          # Create archive from parent directory to avoid "file changed" issues
+          cd ..
           tar -czf deploy.tar.gz \
-            --exclude='deploy.tar.gz' \
-            --exclude='node_modules' \
-            --exclude='.git' \
-            --exclude='dist' \
-            --exclude='.github' \
-            --exclude='*.log' \
-            --exclude='.env*' \
-            --exclude='docker-compose.dev.yml' \
-            .
+            --exclude="$DIR_NAME/node_modules" \
+            --exclude="$DIR_NAME/.git" \
+            --exclude="$DIR_NAME/dist" \
+            --exclude="$DIR_NAME/.github" \
+            --exclude="$DIR_NAME/*.log" \
+            --exclude="$DIR_NAME/.env*" \
+            --exclude="$DIR_NAME/docker-compose.dev.yml" \
+            --exclude="$DIR_NAME/deploy.tar.gz" \
+            "$DIR_NAME"
+          
+          # Move archive back to working directory
+          mv deploy.tar.gz "$DIR_NAME/"
+          cd "$DIR_NAME"
           
           ls -lh deploy.tar.gz
           echo "Archive created successfully"
