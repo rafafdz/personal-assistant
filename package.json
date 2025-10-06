@@ -6,20 +6,49 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "cron": "tsx src/scheduler.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test:agent": "tsx src/test-agent.ts"
+    "test:agent": "tsx src/test-agent.ts",
+    "test:calendar": "tsx src/test-calendar.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:reset": "tsx src/db/reset.ts",
+    "db:studio": "drizzle-kit studio",
+    "dev:db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "dev:db:down": "docker compose -f docker-compose.dev.yml down",
+    "dev:db:restart": "docker compose -f docker-compose.dev.yml restart postgres"
   },
-  "keywords": ["telegram", "bot", "anthropic", "claude", "agent", "grammy"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "anthropic",
+    "claude",
+    "agent",
+    "grammy"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.5",
+    "@elevenlabs/elevenlabs-js": "^2.17.0",
+    "@googlemaps/google-maps-services-js": "^3.4.2",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.44.6",
+    "google-auth-library": "^10.4.0",
+    "googleapis": "^161.0.0",
     "grammy": "^1.38.2",
-    "dotenv": "^16.4.5"
+    "node-cron": "^4.2.1",
+    "postgres": "^3.4.7",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.31.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

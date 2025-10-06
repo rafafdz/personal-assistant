@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: telegram-agent-db-prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-agent-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    # Optional: expose port for health checks or webhooks
+    # ports:
+    #   - "3000:3000"
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-agent-scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    command: ["node", "dist/scheduler.js"]
+
+volumes:
+  postgres_data_prod:
+    driver: local
+

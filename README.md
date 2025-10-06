@@ -17,6 +17,14 @@ cp .env.example .env
 3. Add your credentials to `.env`:
    - Get your Telegram bot token from [@BotFather](https://t.me/botfather)
    - Get your Anthropic API key from [Anthropic Console](https://console.anthropic.com/)
+   - (Optional) For Google Calendar integration:
+     - Create a Google Cloud project
+     - Enable Google Calendar API
+     - Create OAuth 2.0 credentials (Desktop app or Web application)
+     - Download the credentials JSON file
+     - Add the path to `GOOGLE_OAUTH_CREDENTIALS_FILE` in `.env`
+     - When you ask about calendar events, the bot will provide an auth link
+     - Authenticate and send the code back to the bot
 
 ## Development
 
@@ -53,5 +61,7 @@ pnpm start
 
 - **Conversation Memory**: The bot maintains conversation history per chat using Claude Agent SDK sessions
 - **Multi-turn Reasoning**: Agent can use up to 5 turns to reason through complex queries
-- **Tool Usage**: Agent can use tools like WebSearch, Read, Grep (but not Bash/Write/Edit for safety)
+- **Tool Usage**: Agent can use tools like WebSearch, Read, Grep, Bash, Write, Edit
+- **Custom Tools**: Google Calendar integration to check events (optional)
 - **Group Support**: Works in groups when mentioned or replied to
+- **Streaming Responses**: Real-time message streaming with automatic splitting

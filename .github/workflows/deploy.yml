@@ -1,0 +1,102 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main  # Trigger deployment on push to main branch
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          # Decode base64 SSH key and save it
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          
+          # Add VPS to known hosts to avoid SSH verification prompt
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
+
+      - name: Create deployment archive
+        run: |
+          # Create a zip file excluding unnecessary files
+          echo "Creating deployment archive..."
+          zip -r deploy.zip . \
+            -x "node_modules/*" \
+            -x ".git/*" \
+            -x "dist/*" \
+            -x ".github/*" \
+            -x "*.log" \
+            -x ".env*" \
+            -x "docker-compose.dev.yml"
+          
+          ls -lh deploy.zip
+          echo "Archive created successfully"
+
+      - name: Transfer files to VPS
+        run: |
+          echo "Transferring files to VPS..."
+          
+          # Create app directory on VPS if it doesn't exist
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "mkdir -p /app/telegram-agent"
+          
+          # Transfer the deployment archive
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            deploy.zip \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/app/telegram-agent/
+
+      - name: Extract and deploy on VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          
+          set -e  # Exit on error
+          
+          cd ~/personal-agent
+          
+          echo "Extracting deployment archive..."
+          unzip -o deploy.zip
+          rm deploy.zip
+          
+          echo "Making deploy script executable..."
+          chmod +x deploy.sh
+          
+          echo "Running deployment script..."
+          ./deploy.sh
+          
+          echo "Deployment completed successfully!"
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          echo "Checking deployment status..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          
+          cd ~/personal-agent
+          
+          echo "=== Container Status ==="
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo ""
+          echo "=== Recent Logs ==="
+          docker compose -f docker-compose.prod.yml logs --tail=30
+          
+          ENDSSH
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Remove sensitive files
+          rm -f ~/.ssh/deploy_key
+          rm -f deploy.zip
+

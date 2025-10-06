@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
+
+# Build outputs (will be copied from builder stage)
+dist/
+
+# Development files
+*.md
+.git/
+.github/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Docker files
+docker-compose.dev.yml
+Dockerfile
+.dockerignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test files
+src/test-*.ts
+*.test.ts
+*.spec.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db
+.DS_Store
+
