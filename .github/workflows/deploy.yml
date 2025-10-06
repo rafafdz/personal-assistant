@@ -36,6 +36,7 @@ jobs:
           # Create a tar.gz file excluding unnecessary files
           echo "Creating deployment archive..."
           tar -czf deploy.tar.gz \
+            --exclude='deploy.tar.gz' \
             --exclude='node_modules' \
             --exclude='.git' \
             --exclude='dist' \
