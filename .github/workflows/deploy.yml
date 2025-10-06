@@ -21,8 +21,15 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           
+          # Set SSH port (default to 22 if not specified)
+          SSH_PORT="${{ secrets.VPS_PORT }}"
+          if [ -z "$SSH_PORT" ]; then
+            SSH_PORT=22
+          fi
+          echo "SSH_PORT=$SSH_PORT" >> $GITHUB_ENV
+          
           # Add VPS to known hosts to avoid SSH verification prompt
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
+          ssh-keyscan -p $SSH_PORT -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts || true
 
       - name: Create deployment archive
         run: |
@@ -43,25 +50,26 @@ jobs:
       - name: Transfer files to VPS
         run: |
           echo "Transferring files to VPS..."
+          echo "Using SSH port: $SSH_PORT"
           
           # Create app directory on VPS if it doesn't exist
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p $SSH_PORT \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "mkdir -p /app/telegram-agent"
+            "mkdir -p /home/debian/personal-assistant"
           
           # Transfer the deployment archive
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -P $SSH_PORT \
             deploy.zip \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/app/telegram-agent/
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/debian/personal-assistant/
 
       - name: Extract and deploy on VPS
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p $SSH_PORT \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
           
           set -e  # Exit on error
           
-          cd ~/personal-agent
+          cd /home/debian/personal-assistant
           
           echo "Extracting deployment archive..."
           unzip -o deploy.zip
@@ -79,10 +87,10 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Checking deployment status..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p $SSH_PORT \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
           
-          cd ~/personal-agent
+          cd /home/debian/personal-assistant
           
           echo "=== Container Status ==="
           docker compose -f docker-compose.prod.yml ps

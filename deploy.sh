@@ -10,7 +10,7 @@ echo "Starting deployment..."
 echo "=========================================="
 
 # Navigate to app directory
-cd /app/telegram-agent
+cd /home/debian/personal-assistant
 
 # Stop existing containers
 echo "Stopping existing containers..."
