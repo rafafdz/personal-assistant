@@ -41,11 +41,13 @@
     "google-auth-library": "^10.4.0",
     "googleapis": "^161.0.0",
     "grammy": "^1.38.2",
+    "markdown-it": "^14.1.0",
     "node-cron": "^4.2.1",
     "postgres": "^3.4.7",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.10.5",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.15.5",
