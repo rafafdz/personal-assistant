@@ -71,7 +71,7 @@ RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app
 
 # Copy Claude Code configuration
-COPY --chown=appuser:appuser .claude /home/appuser/.claude
+COPY --chown=appuser:appuser .claude.json /home/appuser/.claude.json
 
 USER appuser
 
