@@ -84,28 +84,12 @@ jobs:
           
           echo "Making deploy script executable..."
           chmod +x deploy.sh
-          
-          echo "Running deployment script..."
-          ./deploy.sh
-          
-          echo "Deployment completed successfully!"
-          ENDSSH
 
-      - name: Verify deployment
-        run: |
-          echo "Checking deployment status..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p $SSH_PORT \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-          
-          cd /home/debian/personal-assistant
-          
-          echo "=== Container Status ==="
-          docker compose -f docker-compose.prod.yml ps
-          
-          echo ""
-          echo "=== Recent Logs ==="
-          docker compose -f docker-compose.prod.yml logs --tail=30
-          
+          echo "Triggering deployment script in background..."
+          nohup ./deploy.sh > deploy.log 2>&1 &
+
+          echo "Deployment triggered! Build is running on server."
+          echo "To check status, SSH to server and run: tail -f /home/debian/personal-assistant/deploy.log"
           ENDSSH
 
       - name: Cleanup

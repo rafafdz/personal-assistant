@@ -3,8 +3,8 @@ import { google } from 'googleapis';
 import { z } from 'zod';
 import { OAuth2Client } from 'google-auth-library';
 import { readFileSync } from 'fs';
-import { db } from '../db/client.js';
-import { calendarTokens, calendars, conversations, accounts } from '../db/schema.js';
+import { db } from '../db/client';
+import { calendarTokens, calendars, conversations, accounts } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // Load OAuth credentials from JSON file

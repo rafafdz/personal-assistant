@@ -1,7 +1,7 @@
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { db } from '../db/client.js';
-import { reminders, conversations } from '../db/schema.js';
+import { db } from '../db/client';
+import { reminders, conversations } from '../db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { parseISO, formatISO } from 'date-fns';
 import { fromZonedTime, toZonedTime, format } from 'date-fns-tz';

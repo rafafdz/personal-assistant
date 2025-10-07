@@ -1,14 +1,14 @@
 import cron from 'node-cron';
 import dotenv from 'dotenv';
-import { db } from './db/client.js';
-import { reminders } from './db/schema.js';
+import { db } from './db/client';
+import { reminders } from './db/schema';
 import { eq, and, lte } from 'drizzle-orm';
 import { add, parseISO } from 'date-fns';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SDKAssistantMessage } from '@anthropic-ai/claude-agent-sdk';
-import { calendarServer } from './tools/calendar.js';
-import { mapsServer } from './tools/maps.js';
-import { reminderServer } from './tools/reminders.js';
+import { calendarServer } from './tools/calendar';
+import { mapsServer } from './tools/maps';
+import { reminderServer } from './tools/reminders';
 
 dotenv.config();
 

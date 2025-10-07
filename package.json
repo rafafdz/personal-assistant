@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Telegram bot powered by Anthropic Agent SDK and grammY",
   "main": "src/index.ts",
-  "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "cron": "tsx src/scheduler.ts",
