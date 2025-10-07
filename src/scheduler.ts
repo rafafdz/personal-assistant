@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { db } from './db/client';
-import { reminders } from './db/schema';
+import { reminders, conversations } from './db/schema';
 import { eq, and, lte } from 'drizzle-orm';
 import { add, parseISO } from 'date-fns';
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -60,6 +60,21 @@ async function processMessageWithAgent(conversationId: string, prompt: string): 
   console.log(`[Scheduler] Prompt: "${prompt}"`);
 
   try {
+    // Retrieve session ID from database for conversation continuity
+    const conversationRecord = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+
+    const sessionId = conversationRecord.length > 0 ? conversationRecord[0].sessionId : undefined;
+
+    if (sessionId) {
+      console.log(`[Scheduler] Using existing session ID: ${sessionId}`);
+    } else {
+      console.log(`[Scheduler] No existing session ID found, will create new session`);
+    }
+
     const now = new Date();
     const currentDateTime = now.toISOString();
     const currentDateFormatted = now.toLocaleDateString('en-US', {
@@ -80,6 +95,7 @@ async function processMessageWithAgent(conversationId: string, prompt: string): 
         model: 'claude-sonnet-4-5',
         maxTurns: 50,
         permissionMode: 'bypassPermissions',
+        resume: sessionId ?? undefined, // Use existing session for conversation continuity
         mcpServers: {
           'google-calendar-tools': calendarServer,
           'google-maps-tools': mapsServer,
@@ -104,9 +120,19 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
     });
 
     let responseText = '';
+    let newSessionId: string | undefined;
 
     // Collect text from complete assistant messages only (no streaming)
     for await (const message of agentQuery) {
+      // Capture session ID from init message
+      if (message.type === 'system') {
+        const systemMsg = message as any;
+        if (systemMsg.subtype === 'init') {
+          newSessionId = systemMsg.session_id;
+          console.log(`[Scheduler] Captured session ID: ${newSessionId}`);
+        }
+      }
+
       if (message.type === 'assistant') {
         const assistantMsg = message as SDKAssistantMessage;
         for (const block of assistantMsg.message.content) {
@@ -115,6 +141,22 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
           }
         }
       }
+    }
+
+    // Store new session ID if we got one
+    if (newSessionId && newSessionId !== sessionId) {
+      console.log(`[Scheduler] Storing new session ID ${newSessionId} for conversation ${conversationId}`);
+      await db.insert(conversations).values({
+        id: conversationId,
+        sessionId: newSessionId,
+        context: [],
+      }).onConflictDoUpdate({
+        target: conversations.id,
+        set: {
+          sessionId: newSessionId,
+          updatedAt: new Date(),
+        },
+      });
     }
 
     const trimmedResponse = responseText.trim();
@@ -140,53 +182,89 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
   }
 }
 
-// Calculate next occurrence for recurring reminders
-function calculateNextOccurrence(reminder: any): Date | null {
-  const recurrence = reminder.recurrence;
-
-  if (!recurrence || recurrence.type === 'none') {
-    return null;
+// Helper to check if a cron expression matches the current time
+// Based on standard cron format: minute hour day month weekday
+function cronMatchesTime(cronExpression: string, date: Date): boolean {
+  const parts = cronExpression.split(' ');
+  if (parts.length !== 5) {
+    console.error(`[Scheduler] Invalid cron expression format: ${cronExpression}`);
+    return false;
   }
 
-  const currentScheduled = reminder.scheduledFor;
-  const interval = recurrence.interval || 1;
-  let nextDate: Date;
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
-  switch (recurrence.type) {
-    case 'daily':
-      nextDate = add(currentScheduled, { days: interval });
-      break;
+  const matches = (cronPart: string, value: number, max: number): boolean => {
+    // * matches everything
+    if (cronPart === '*') return true;
 
-    case 'weekly':
-      nextDate = add(currentScheduled, { weeks: interval });
-      break;
+    // */n matches every n values
+    if (cronPart.startsWith('*/')) {
+      const interval = parseInt(cronPart.slice(2));
+      return value % interval === 0;
+    }
 
-    case 'monthly':
-      nextDate = add(currentScheduled, { months: interval });
-      break;
+    // Range: 1-5
+    if (cronPart.includes('-')) {
+      const [start, end] = cronPart.split('-').map(Number);
+      return value >= start && value <= end;
+    }
 
-    case 'yearly':
-      nextDate = add(currentScheduled, { years: interval });
-      break;
+    // List: 1,3,5
+    if (cronPart.includes(',')) {
+      return cronPart.split(',').map(Number).includes(value);
+    }
 
-    case 'custom':
-      // For custom recurrence, use daily interval as default
-      nextDate = add(currentScheduled, { days: interval });
-      break;
+    // Exact match
+    return parseInt(cronPart) === value;
+  };
 
-    default:
-      return null;
+  return (
+    matches(minute, date.getMinutes(), 59) &&
+    matches(hour, date.getHours(), 23) &&
+    matches(dayOfMonth, date.getDate(), 31) &&
+    matches(month, date.getMonth() + 1, 12) && // Month is 0-indexed in JS
+    matches(dayOfWeek, date.getDay(), 6) // 0 = Sunday
+  );
+}
+
+// Check if a reminder should run based on its cron expression or scheduled time
+function shouldReminderRun(reminder: any, now: Date): boolean {
+  // If no cron expression, it's a one-time reminder - check if it's due
+  if (!reminder.cronExpression) {
+    return reminder.scheduledFor <= now;
   }
 
-  // Check if we've passed the end date
-  if (recurrence.endDate) {
-    const endDate = parseISO(recurrence.endDate);
-    if (nextDate > endDate) {
-      return null; // Recurrence has ended
+  // For recurring reminders with cron expressions:
+
+  // If this reminder was already sent in the last minute, skip it
+  // (to avoid sending the same reminder multiple times within the same minute)
+  if (reminder.lastSent) {
+    const lastSentMinute = new Date(reminder.lastSent);
+    lastSentMinute.setSeconds(0, 0);
+    const currentMinute = new Date(now);
+    currentMinute.setSeconds(0, 0);
+
+    if (lastSentMinute.getTime() === currentMinute.getTime()) {
+      return false; // Already sent in this minute
     }
   }
 
-  return nextDate;
+  // Check if current time is past the start time
+  if (now < reminder.scheduledFor) {
+    return false; // Haven't reached start time yet
+  }
+
+  // Check if we've passed the end date
+  if (reminder.endDate && now > reminder.endDate) {
+    return false; // Recurrence has ended
+  }
+
+  // Convert to the reminder's timezone for cron matching
+  const { toZonedTime } = require('date-fns-tz');
+  const zonedNow = toZonedTime(now, reminder.timezone || 'America/Santiago');
+
+  // Check if the cron expression matches the current time
+  return cronMatchesTime(reminder.cronExpression, zonedNow);
 }
 
 // Process due reminders
@@ -195,22 +273,23 @@ async function processDueReminders() {
   console.log(`[Scheduler] Checking for due reminders at ${now.toISOString()}`);
 
   try {
-    // Find all pending reminders that are due
-    const dueReminders = await db
+    // Find all pending reminders (we'll filter by schedule logic below)
+    const allReminders = await db
       .select()
       .from(reminders)
-      .where(
-        and(
-          eq(reminders.status, 'pending'),
-          lte(reminders.scheduledFor, now)
-        )
-      );
+      .where(eq(reminders.status, 'pending'));
 
-    console.log(`[Scheduler] Found ${dueReminders.length} due reminder(s)`);
+    console.log(`[Scheduler] Found ${allReminders.length} pending reminder(s), filtering by schedule...`);
+
+    // Filter reminders that should run now
+    const dueReminders = allReminders.filter(reminder => shouldReminderRun(reminder, now));
+
+    console.log(`[Scheduler] ${dueReminders.length} reminder(s) should run now`);
 
     for (const reminder of dueReminders) {
       console.log(`[Scheduler] Processing reminder ${reminder.id}: "${reminder.message}"`);
       console.log(`[Scheduler] Process with agent: ${reminder.processWithAgent}`);
+      console.log(`[Scheduler] Cron expression: ${reminder.cronExpression || 'none (one-time)'}`);
 
       let messageText: string;
 
@@ -236,23 +315,20 @@ async function processDueReminders() {
         continue;
       }
 
-      // Check if this is a recurring reminder
-      const nextOccurrence = calculateNextOccurrence(reminder);
-
-      if (nextOccurrence) {
-        // Update for next occurrence
+      // Check if this is a recurring reminder or one-time
+      if (reminder.cronExpression) {
+        // Recurring reminder - just update lastSent timestamp
         await db
           .update(reminders)
           .set({
-            scheduledFor: nextOccurrence,
             lastSent: now,
             updatedAt: now,
           })
           .where(eq(reminders.id, reminder.id));
 
-        console.log(`[Scheduler] Recurring reminder ${reminder.id} rescheduled for ${nextOccurrence.toISOString()}`);
+        console.log(`[Scheduler] Recurring reminder ${reminder.id} will run again according to cron: ${reminder.cronExpression}`);
       } else {
-        // Mark as sent (one-time reminder or recurring has ended)
+        // One-time reminder - mark as sent
         await db
           .update(reminders)
           .set({
@@ -262,7 +338,7 @@ async function processDueReminders() {
           })
           .where(eq(reminders.id, reminder.id));
 
-        console.log(`[Scheduler] Reminder ${reminder.id} marked as sent`);
+        console.log(`[Scheduler] One-time reminder ${reminder.id} marked as sent`);
       }
     }
   } catch (error) {

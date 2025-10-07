@@ -1,6 +1,6 @@
 {
-  "id": "1d990665-1abc-4b84-9d8a-03313bd1ac84",
-  "prevId": "f330ce82-a516-4f2e-ade6-7c331e9b458b",
+  "id": "c983926e-9997-47e9-b26b-3bd87db4b366",
+  "prevId": "1a358b95-41c9-4527-864d-95b6c7489ff4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -271,6 +271,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "context": {
           "name": "context",
           "type": "jsonb",
@@ -326,7 +332,7 @@
         },
         "scheduled_for": {
           "name": "scheduled_for",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -344,29 +350,41 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "recurrence": {
-          "name": "recurrence",
-          "type": "jsonb",
+        "process_with_agent": {
+          "name": "process_with_agent",
+          "type": "boolean",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'{\"type\":\"none\"}'::jsonb"
+          "notNull": true,
+          "default": false
+        },
+        "cron_expression": {
+          "name": "cron_expression",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_sent": {
           "name": "last_sent",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"

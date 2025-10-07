@@ -5,23 +5,20 @@ import { reminders, conversations } from '../db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 import { parseISO, formatISO } from 'date-fns';
 import { fromZonedTime, toZonedTime, format } from 'date-fns-tz';
+import cron from 'node-cron';
 
 // Tool to create a reminder
 const createReminderTool = tool(
   'create_reminder',
-  'Create a reminder for a specific time. The reminder will be sent to the conversation as a message. Supports one-time and recurring reminders. Can optionally process the message through the agent before sending (useful for dynamic content like "tell me my events today").',
+  'Create a reminder for a specific time. The reminder will be sent to the conversation as a message. Supports one-time and recurring reminders using cron expressions. Can optionally process the message through the agent before sending (useful for dynamic content like "tell me my events today").',
   {
     conversationId: z.string().describe('Conversation/chat ID'),
     message: z.string().describe('What to remind the user about (or a prompt for the agent if processWithAgent is true)'),
-    scheduledFor: z.string().describe('When to send the reminder in ISO format (e.g., 2025-10-07T13:00:00)'),
+    scheduledFor: z.string().describe('When to send the reminder in ISO format (e.g., 2025-10-07T13:00:00). For recurring reminders, this is the start time.'),
     timezone: z.string().optional().default('America/Santiago').describe('Timezone for the reminder'),
     processWithAgent: z.boolean().optional().default(false).describe('If true, the message will be sent to the AI agent for processing before being sent to the user. Use this for dynamic content like "What are my events today?" or "Summarize my calendar"'),
-    recurrence: z.object({
-      type: z.enum(['none', 'daily', 'weekly', 'monthly', 'yearly', 'custom']).describe('Type of recurrence'),
-      interval: z.number().optional().describe('Interval for recurrence (e.g., every 2 days)'),
-      daysOfWeek: z.array(z.number().min(0).max(6)).optional().describe('Days of week for weekly recurrence (0=Sunday, 6=Saturday)'),
-      endDate: z.string().optional().describe('End date for recurring reminder in ISO format'),
-    }).optional().describe('Recurrence settings for the reminder'),
+    cronExpression: z.string().optional().describe('Cron expression for recurring reminders (e.g., "0 9 * * 1-5" for weekdays at 9am, "0 */2 * * *" for every 2 hours). If not provided, it\'s a one-time reminder. Format: minute hour day month weekday'),
+    endDate: z.string().optional().describe('End date for recurring reminders in ISO format'),
   },
   async (args) => {
     console.log(`[Reminders] Creating reminder for conversation ${args.conversationId}`);
@@ -34,6 +31,17 @@ const createReminderTool = tool(
         id: args.conversationId,
         context: [],
       }).onConflictDoNothing();
+
+      // Validate cron expression if provided
+      if (args.cronExpression && !cron.validate(args.cronExpression)) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Invalid cron expression: "${args.cronExpression}". Please use standard cron format (minute hour day month weekday). Examples:\n- "0 9 * * 1-5" = Weekdays at 9am\n- "0 */2 * * *" = Every 2 hours\n- "30 8 * * 0" = Sundays at 8:30am`,
+          }],
+          isError: true,
+        };
+      }
 
       // Parse and validate the scheduled time, converting from user's timezone to UTC
       const timezone = args.timezone || 'America/Santiago';
@@ -52,8 +60,8 @@ const createReminderTool = tool(
         };
       }
 
-      // Check if the scheduled time is in the past (compare in UTC)
-      if (scheduledDate < new Date()) {
+      // Check if the scheduled time is in the past (compare in UTC) - only for one-time reminders
+      if (!args.cronExpression && scheduledDate < new Date()) {
         return {
           content: [{
             type: 'text',
@@ -61,6 +69,22 @@ const createReminderTool = tool(
           }],
           isError: true,
         };
+      }
+
+      // Parse end date if provided
+      let endDate: Date | undefined;
+      if (args.endDate) {
+        try {
+          endDate = fromZonedTime(args.endDate, timezone);
+        } catch (error) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Invalid end date format. Please provide a valid ISO date string.`,
+            }],
+            isError: true,
+          };
+        }
       }
 
       // Insert reminder into database
@@ -71,7 +95,8 @@ const createReminderTool = tool(
         timezone: args.timezone || 'America/Santiago',
         status: 'pending',
         processWithAgent: args.processWithAgent || false,
-        recurrence: args.recurrence || { type: 'none' },
+        cronExpression: args.cronExpression || null,
+        endDate: endDate || null,
       }).returning();
 
       const reminder = result[0];
@@ -85,18 +110,10 @@ const createReminderTool = tool(
         responseText += `\nProcessing: Will be processed by AI agent before sending`;
       }
 
-      if (args.recurrence && args.recurrence.type !== 'none') {
-        responseText += `\nRecurrence: ${args.recurrence.type}`;
-        if (args.recurrence.interval) {
-          responseText += ` (every ${args.recurrence.interval})`;
-        }
-        if (args.recurrence.daysOfWeek && args.recurrence.daysOfWeek.length > 0) {
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          const days = args.recurrence.daysOfWeek.map(d => dayNames[d]).join(', ');
-          responseText += ` on ${days}`;
-        }
-        if (args.recurrence.endDate) {
-          responseText += `\nEnds on: ${args.recurrence.endDate}`;
+      if (args.cronExpression) {
+        responseText += `\nRecurrence: ${args.cronExpression}`;
+        if (args.endDate) {
+          responseText += `\nEnds on: ${args.endDate}`;
         }
       }
 
@@ -168,8 +185,8 @@ const listRemindersTool = tool(
       }
 
       const reminderList = result.map((reminder) => {
-        const recurrenceInfo = reminder.recurrence?.type !== 'none'
-          ? ` (Recurring: ${reminder.recurrence?.type})`
+        const recurrenceInfo = reminder.cronExpression
+          ? ` (Recurring: ${reminder.cronExpression})`
           : '';
 
         return `• ${reminder.message}
@@ -255,18 +272,14 @@ const cancelReminderTool = tool(
 // Tool to edit a reminder
 const editReminderTool = tool(
   'edit_reminder',
-  'Edit an existing reminder. You can update the message, scheduled time, or recurrence settings.',
+  'Edit an existing reminder. You can update the message, scheduled time, or cron expression for recurring reminders.',
   {
     conversationId: z.string().describe('Conversation/chat ID'),
     reminderId: z.string().describe('UUID of the reminder to edit'),
     message: z.string().optional().describe('New reminder message'),
     scheduledFor: z.string().optional().describe('New scheduled time in ISO format'),
-    recurrence: z.object({
-      type: z.enum(['none', 'daily', 'weekly', 'monthly', 'yearly', 'custom']),
-      interval: z.number().optional(),
-      daysOfWeek: z.array(z.number().min(0).max(6)).optional(),
-      endDate: z.string().optional(),
-    }).optional().describe('New recurrence settings'),
+    cronExpression: z.string().optional().describe('New cron expression for recurring reminders (e.g., "0 9 * * 1-5" for weekdays at 9am). Set to null to convert to one-time reminder.'),
+    endDate: z.string().optional().describe('New end date for recurring reminders in ISO format'),
   },
   async (args) => {
     console.log(`[Reminders] Editing reminder ${args.reminderId} for conversation ${args.conversationId}`);
@@ -289,6 +302,17 @@ const editReminderTool = tool(
           content: [{
             type: 'text',
             text: 'Reminder not found in this conversation.',
+          }],
+          isError: true,
+        };
+      }
+
+      // Validate cron expression if provided
+      if (args.cronExpression && !cron.validate(args.cronExpression)) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Invalid cron expression: "${args.cronExpression}". Please use standard cron format.`,
           }],
           isError: true,
         };
@@ -321,8 +345,27 @@ const editReminderTool = tool(
         }
       }
 
-      if (args.recurrence) {
-        updates.recurrence = args.recurrence;
+      if (args.cronExpression !== undefined) {
+        updates.cronExpression = args.cronExpression;
+      }
+
+      if (args.endDate !== undefined) {
+        if (args.endDate) {
+          const timezone = existing[0].timezone || 'America/Santiago';
+          try {
+            updates.endDate = fromZonedTime(args.endDate, timezone);
+          } catch (error) {
+            return {
+              content: [{
+                type: 'text',
+                text: `Invalid end date format. Please provide a valid ISO date string.`,
+              }],
+              isError: true,
+            };
+          }
+        } else {
+          updates.endDate = null;
+        }
       }
 
       // Update the reminder
@@ -337,10 +380,16 @@ const editReminderTool = tool(
         )
         .returning();
 
+      let responseText = `Reminder updated successfully!\n\nMessage: ${result[0].message}\nScheduled for: ${formatISO(result[0].scheduledFor)}`;
+
+      if (result[0].cronExpression) {
+        responseText += `\nRecurrence: ${result[0].cronExpression}`;
+      }
+
       return {
         content: [{
           type: 'text',
-          text: `Reminder updated successfully!\n\nMessage: ${result[0].message}\nScheduled for: ${formatISO(result[0].scheduledFor)}`,
+          text: responseText,
         }],
       };
     } catch (error: any) {

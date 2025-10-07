@@ -1,1 +1,0 @@
-ALTER TABLE "reminders" ADD COLUMN "process_with_agent" boolean DEFAULT false NOT NULL;

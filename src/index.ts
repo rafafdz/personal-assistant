@@ -10,6 +10,9 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import https from 'https';
+import { db } from './db/client';
+import { conversations } from './db/schema';
+import { eq } from 'drizzle-orm';
 
 const writeFile = promisify(fs.writeFile);
 const unlink = promisify(fs.unlink);
@@ -76,8 +79,23 @@ bot.on('message:text', async (ctx) => {
   }
 
   try {
-    // Get existing session for this chat
-    const existingSession = chatSessions.get(chatId);
+    // Get existing session for this chat from database
+    let existingSession = chatSessions.get(chatId);
+
+    // If not in memory, try to load from database
+    if (!existingSession) {
+      const conversationRecord = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, chatId.toString()))
+        .limit(1);
+
+      if (conversationRecord.length > 0 && conversationRecord[0].sessionId) {
+        existingSession = conversationRecord[0].sessionId;
+        chatSessions.set(chatId, existingSession); // Cache in memory
+        console.log(`[${new Date().toISOString()}] Loaded session from database: ${existingSession}`);
+      }
+    }
 
     if (existingSession) {
       console.log(`[${new Date().toISOString()}] Resuming session: ${existingSession}`);
@@ -402,10 +420,24 @@ You have access to tools like WebSearch and file reading capabilities. Use them 
       console.log(`[${new Date().toISOString()}] Sent final chunk #${sentMessages}`);
     }
 
-    // Store session ID for this chat
+    // Store session ID for this chat in memory and database
     if (currentSessionId) {
       chatSessions.set(chatId, currentSessionId);
-      console.log(`[${new Date().toISOString()}] Stored session ${currentSessionId} for chat ${chatId}`);
+
+      // Update or insert conversation with session ID
+      await db.insert(conversations).values({
+        id: chatId.toString(),
+        sessionId: currentSessionId,
+        context: [],
+      }).onConflictDoUpdate({
+        target: conversations.id,
+        set: {
+          sessionId: currentSessionId,
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log(`[${new Date().toISOString()}] Stored session ${currentSessionId} for chat ${chatId} in database`);
     }
 
     console.log(`[${new Date().toISOString()}] Agent query completed`);
@@ -502,8 +534,23 @@ bot.on('message:voice', async (ctx) => {
     );
 
     // Now process the transcribed text as a regular message
-    // Get existing session for this chat
-    const existingSession = chatSessions.get(chatId);
+    // Get existing session for this chat from database
+    let existingSession = chatSessions.get(chatId);
+
+    // If not in memory, try to load from database
+    if (!existingSession) {
+      const conversationRecord = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, chatId.toString()))
+        .limit(1);
+
+      if (conversationRecord.length > 0 && conversationRecord[0].sessionId) {
+        existingSession = conversationRecord[0].sessionId;
+        chatSessions.set(chatId, existingSession); // Cache in memory
+        console.log(`[${new Date().toISOString()}] Loaded session from database: ${existingSession}`);
+      }
+    }
 
     if (existingSession) {
       console.log(`[${new Date().toISOString()}] Resuming session: ${existingSession}`);
@@ -810,10 +857,24 @@ You have access to tools like WebSearch and file reading capabilities. Use them 
       await sendMessage(accumulatedText.trim());
     }
 
-    // Store session ID for this chat
+    // Store session ID for this chat in memory and database
     if (currentSessionId) {
       chatSessions.set(chatId, currentSessionId);
-      console.log(`[${new Date().toISOString()}] Stored session ${currentSessionId} for chat ${chatId}`);
+
+      // Update or insert conversation with session ID
+      await db.insert(conversations).values({
+        id: chatId.toString(),
+        sessionId: currentSessionId,
+        context: [],
+      }).onConflictDoUpdate({
+        target: conversations.id,
+        set: {
+          sessionId: currentSessionId,
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log(`[${new Date().toISOString()}] Stored session ${currentSessionId} for chat ${chatId} in database`);
     }
 
     console.log(`[${new Date().toISOString()}] Voice message processing completed`);
