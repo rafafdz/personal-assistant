@@ -3,8 +3,6 @@ services:
     image: postgres:16-alpine
     container_name: telegram-agent-db-prod
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -29,11 +27,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/telegram_agent
       NODE_ENV: production
-    # Optional: expose port for health checks or webhooks
-    # ports:
-    #   - "3000:3000"
 
   scheduler:
     build:
@@ -47,7 +42,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/telegram_agent
       NODE_ENV: production
     command: ["node", "dist/scheduler.js"]
 

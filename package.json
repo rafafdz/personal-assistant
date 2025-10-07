@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "cron": "tsx src/scheduler.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "test:agent": "tsx src/test-agent.ts",
     "test:calendar": "tsx src/test-calendar.ts",
@@ -16,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "dev:db:up": "docker compose -f docker-compose.dev.yml up -d",
     "dev:db:down": "docker compose -f docker-compose.dev.yml down",
-    "dev:db:restart": "docker compose -f docker-compose.dev.yml restart postgres"
+    "dev:db:restart": "docker compose -f docker-compose.dev.yml restart postgres",
+    "prepare": "lefthook install"
   },
   "keywords": [
     "telegram",
@@ -48,6 +50,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.15.5",
     "drizzle-kit": "^0.31.5",
+    "lefthook": "^1.13.6",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
