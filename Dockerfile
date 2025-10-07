@@ -55,7 +55,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install pnpm and Claude Code
 RUN npm install -g pnpm@latest && \
-    pnpm install -g @anthropic-ai/claude-code
+    npm install -g @anthropic-ai/claude-code
 
 # Install only production dependencies (ignore scripts to skip lefthook install)
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
