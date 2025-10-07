@@ -2,23 +2,23 @@ import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { google } from 'googleapis';
 import { z } from 'zod';
 import { OAuth2Client } from 'google-auth-library';
-import { readFileSync } from 'fs';
 import { db } from '../db/client';
 import { calendarTokens, calendars, conversations, accounts } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 
-// Load OAuth credentials from JSON file
+// Load OAuth credentials from base64-encoded JSON in environment variable
 const loadOAuthCredentials = () => {
-  const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS_FILE;
-  console.log(`[OAuth] Loading credentials from: ${credentialsPath}`);
+  const credentialsBase64 = process.env.GOOGLE_OAUTH_CREDENTIALS;
+  console.log(`[OAuth] Loading credentials from GOOGLE_OAUTH_CREDENTIALS env variable`);
 
-  if (!credentialsPath) {
-    throw new Error('GOOGLE_OAUTH_CREDENTIALS_FILE not set in environment');
+  if (!credentialsBase64) {
+    throw new Error('GOOGLE_OAUTH_CREDENTIALS not set in environment');
   }
 
   try {
-    const credentials = JSON.parse(readFileSync(credentialsPath, 'utf8'));
-    console.log(`[OAuth] Credentials file loaded, keys: ${Object.keys(credentials).join(', ')}`);
+    const credentialsJson = Buffer.from(credentialsBase64, 'base64').toString('utf8');
+    const credentials = JSON.parse(credentialsJson);
+    console.log(`[OAuth] Credentials loaded, keys: ${Object.keys(credentials).join(', ')}`);
 
     // Support both web and installed app credential formats
     const clientConfig = credentials.installed || credentials.web;
