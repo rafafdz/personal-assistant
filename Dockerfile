@@ -74,8 +74,7 @@ COPY src/db/migrations ./src/db/migrations
 
 # Create a non-root user for security
 RUN useradd -m -u 1001 appuser && \
-    chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /home/appuser/.claude
+    chown -R appuser:appuser /app
 
 USER appuser
 

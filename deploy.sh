@@ -12,6 +12,13 @@ echo "=========================================="
 # Navigate to app directory
 cd /home/debian/personal-assistant
 
+# Ensure .claude directory exists with correct permissions
+echo "Setting up Claude configuration directory..."
+mkdir -p .claude
+# Set ownership to match container's appuser (UID 1001, GID 1001)
+sudo chown -R 1001:1001 .claude
+sudo chmod -R u+rw .claude
+
 # Stop existing containers
 echo "Stopping existing containers..."
 docker compose -f docker-compose.prod.yml down || true
@@ -19,14 +26,6 @@ docker compose -f docker-compose.prod.yml down || true
 # Build the application
 echo "Building application..."
 docker compose -f docker-compose.prod.yml build --no-cache
-
-# Copy Claude configuration to volume
-echo "Copying Claude configuration to shared volume..."
-docker run --rm \
-  -v "$(pwd)/.claude.json:/source/.claude.json:ro" \
-  -v "$(pwd)/.claude:/source/.claude:ro" \
-  -v personal-assistant_claude_config:/target \
-  alpine sh -c "cp /source/.claude.json /target/ && cp -r /source/.claude /target/"
 
 # Run database migrations
 echo "Running database migrations..."
