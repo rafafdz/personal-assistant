@@ -10,8 +10,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (ignore scripts to skip lefthook install)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY tsconfig.json ./
@@ -56,8 +56,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-# Install only production dependencies
-RUN pnpm install --frozen-lockfile --prod
+# Install only production dependencies (ignore scripts to skip lefthook install)
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
