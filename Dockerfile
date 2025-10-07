@@ -31,6 +31,7 @@ FROM debian:bullseye-slim
 # - build-essential (gcc, g++, make for native modules)
 # - ca-certificates (for HTTPS)
 # - ffmpeg (for audio processing)
+# - tzdata (for timezone configuration)
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -40,7 +41,12 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# Set timezone to America/Santiago
+ENV TZ=America/Santiago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Install Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
