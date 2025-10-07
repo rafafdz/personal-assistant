@@ -88,20 +88,28 @@ bot.on('message:text', async (ctx) => {
     // Send typing indicator
     await ctx.replyWithChatAction('typing');
 
-    // Get current date and time
+    // Get current date and time in Santiago timezone
     const now = new Date();
-    const currentDateTime = now.toISOString();
+    const timezone = 'America/Santiago';
+
+    // Format current time in Santiago timezone for the agent
     const currentDateFormatted = now.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: timezone
     });
     const currentTimeFormatted = now.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
+      timeZoneName: 'short',
+      timeZone: timezone
     });
+
+    // Provide time in Santiago timezone as ISO format (without Z suffix to indicate local time)
+    const nowInSantiago = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const currentDateTime = nowInSantiago.toISOString().replace('Z', '');
 
     // Call Claude Agent SDK
     const agentQuery = query({
@@ -124,7 +132,7 @@ CURRENT CONVERSATION:
 
 IMPORTANT: When using calendar tools, you MUST pass conversationId: "${chatId}" as a parameter.
 
-CURRENT DATE AND TIME:
+CURRENT DATE AND TIME (Santiago/Chile timezone):
 - Current date: ${currentDateFormatted}
 - Current time: ${currentTimeFormatted}
 - ISO format: ${currentDateTime}
@@ -142,7 +150,9 @@ Key reminder tools:
 
 When creating reminders:
 - Parse natural language like "tomorrow at 1pm", "next Monday at 9am", "every day at 8am"
-- Convert to ISO format (YYYY-MM-DDTHH:mm:ss) in Santiago timezone
+- The current time shown above is in Santiago timezone (America/Santiago)
+- When calculating reminder times, work in Santiago timezone
+- Provide scheduledFor in ISO format (YYYY-MM-DDTHH:mm:ss) WITHOUT the Z suffix (local time)
 - For recurring reminders, use the recurrence parameter with type (daily/weekly/monthly/yearly)
 - Reminders will be automatically sent by the system when the time comes
 
@@ -504,20 +514,28 @@ bot.on('message:voice', async (ctx) => {
     // Send typing indicator
     await ctx.replyWithChatAction('typing');
 
-    // Get current date and time
+    // Get current date and time in Santiago timezone
     const now = new Date();
-    const currentDateTime = now.toISOString();
+    const timezone = 'America/Santiago';
+
+    // Format current time in Santiago timezone for the agent
     const currentDateFormatted = now.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: timezone
     });
     const currentTimeFormatted = now.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
+      timeZoneName: 'short',
+      timeZone: timezone
     });
+
+    // Provide time in Santiago timezone as ISO format (without Z suffix to indicate local time)
+    const nowInSantiago = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const currentDateTime = nowInSantiago.toISOString().replace('Z', '');
 
     // Call Claude Agent SDK with the transcribed text
     const agentQuery = query({
@@ -540,7 +558,7 @@ CURRENT CONVERSATION:
 
 IMPORTANT: When using calendar tools, you MUST pass conversationId: "${chatId}" as a parameter.
 
-CURRENT DATE AND TIME:
+CURRENT DATE AND TIME (Santiago/Chile timezone):
 - Current date: ${currentDateFormatted}
 - Current time: ${currentTimeFormatted}
 - ISO format: ${currentDateTime}
@@ -558,7 +576,9 @@ Key reminder tools:
 
 When creating reminders:
 - Parse natural language like "tomorrow at 1pm", "next Monday at 9am", "every day at 8am"
-- Convert to ISO format (YYYY-MM-DDTHH:mm:ss) in Santiago timezone
+- The current time shown above is in Santiago timezone (America/Santiago)
+- When calculating reminder times, work in Santiago timezone
+- Provide scheduledFor in ISO format (YYYY-MM-DDTHH:mm:ss) WITHOUT the Z suffix (local time)
 - For recurring reminders, use the recurrence parameter with type (daily/weekly/monthly/yearly)
 - Reminders will be automatically sent by the system when the time comes
 

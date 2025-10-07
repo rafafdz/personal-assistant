@@ -169,6 +169,11 @@ function calculateNextOccurrence(reminder: any): Date | null {
       nextDate = add(currentScheduled, { years: interval });
       break;
 
+    case 'custom':
+      // For custom recurrence, use daily interval as default
+      nextDate = add(currentScheduled, { days: interval });
+      break;
+
     default:
       return null;
   }
