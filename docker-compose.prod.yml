@@ -30,7 +30,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/telegram_agent
       NODE_ENV: production
     volumes:
-      - claude_sessions:/home/appuser/.claude/sessions
+      - claude_config:/home/appuser/.claude
 
   scheduler:
     build:
@@ -48,11 +48,11 @@ services:
       NODE_ENV: production
     command: ["node", "dist/scheduler.js"]
     volumes:
-      - claude_sessions:/home/appuser/.claude/sessions
+      - claude_config:/home/appuser/.claude
 
 volumes:
   postgres_data_prod:
     driver: local
-  claude_sessions:
+  claude_config:
     driver: local
 

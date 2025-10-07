@@ -76,10 +76,6 @@ COPY src/db/migrations ./src/db/migrations
 RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app
 
-# Copy Claude Code configuration
-COPY --chown=appuser:appuser .claude.json /home/appuser/.claude.json
-COPY --chown=appuser:appuser .claude /home/appuser/.claude
-
 USER appuser
 
 # Expose port (if needed for health checks)

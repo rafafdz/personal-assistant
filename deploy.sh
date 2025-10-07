@@ -20,6 +20,14 @@ docker compose -f docker-compose.prod.yml down || true
 echo "Building application..."
 docker compose -f docker-compose.prod.yml build --no-cache
 
+# Copy Claude configuration to volume
+echo "Copying Claude configuration to shared volume..."
+docker run --rm \
+  -v "$(pwd)/.claude.json:/source/.claude.json:ro" \
+  -v "$(pwd)/.claude:/source/.claude:ro" \
+  -v personal-assistant_claude_config:/target \
+  alpine sh -c "cp /source/.claude.json /target/ && cp -r /source/.claude /target/"
+
 # Run database migrations
 echo "Running database migrations..."
 docker compose -f docker-compose.prod.yml run --rm app node dist/db/migrate.js || echo "Migration failed or no migrations to run"
