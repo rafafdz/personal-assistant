@@ -53,8 +53,9 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install pnpm
-RUN npm install -g pnpm@latest
+# Install pnpm and Claude Code
+RUN npm install -g pnpm@latest && \
+    pnpm install -g @anthropic-ai/claude-code
 
 # Install only production dependencies (ignore scripts to skip lefthook install)
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
