@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/telegram_agent
       NODE_ENV: production
+    volumes:
+      - ./.claude.json:/home/appuser/.claude.json:ro
 
   scheduler:
     build:
@@ -44,6 +46,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/telegram_agent
       NODE_ENV: production
+    volumes:
+      - ./.claude.json:/home/appuser/.claude.json:ro
     command: ["node", "dist/scheduler.js"]
 
 volumes:
