@@ -5,6 +5,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telegram_agent
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     healthcheck:
@@ -25,6 +29,8 @@ services:
     env_file:
       - .env
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    environment:
       NODE_ENV: production
     # Optional: expose port for health checks or webhooks
     # ports:
@@ -42,6 +48,7 @@ services:
     env_file:
       - .env
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       NODE_ENV: production
     command: ["node", "dist/scheduler.js"]
 
