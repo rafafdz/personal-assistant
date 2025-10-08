@@ -2,4 +2,4 @@ pre-commit:
   commands:
     typecheck:
       glob: "*.{ts,tsx,js,jsx,json}"
-      run: pnpm typecheck {staged_files}
+      run: pnpm typecheck

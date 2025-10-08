@@ -10,6 +10,7 @@ import { calendarServer } from './tools/calendar';
 import { mapsServer } from './tools/maps';
 import { reminderServer } from './tools/reminders';
 import { getSystemPrompt } from './prompts/system-prompt';
+import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from './utils/agent-error-handler';
 
 dotenv.config();
 
@@ -124,6 +125,7 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
 
     let responseText = '';
     let newSessionId: string | undefined;
+    let sessionLimitReached = false;
 
     // Collect text from complete assistant messages only (no streaming)
     for await (const message of agentQuery) {
@@ -136,6 +138,15 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
         }
       }
 
+      // Check for session limit error
+      if (message.type === 'result' && isSessionLimitError(message)) {
+        const errorMessage = getSessionLimitMessage(message);
+        console.log(`[Scheduler] Session limit error detected: ${errorMessage}`);
+        await handleSessionLimitError(null, errorMessage, conversationId);
+        sessionLimitReached = true;
+        break;
+      }
+
       if (message.type === 'assistant') {
         const assistantMsg = message as SDKAssistantMessage;
         for (const block of assistantMsg.message.content) {
@@ -144,6 +155,11 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
           }
         }
       }
+    }
+
+    // If session limit was reached, return null
+    if (sessionLimitReached) {
+      return null;
     }
 
     // Store new session ID if we got one

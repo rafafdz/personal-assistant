@@ -6,6 +6,7 @@ import { mapsServer } from '../tools/maps';
 import { reminderServer } from '../tools/reminders';
 import { getSystemPrompt } from '../prompts/system-prompt';
 import { sendTelegramMessage, startTypingIndicator, stopTypingIndicator, getCurrentSantiagoTime } from '../utils/telegram-helpers';
+import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from '../utils/agent-error-handler';
 
 interface AgentHandlerOptions {
   ctx: Context;
@@ -18,6 +19,7 @@ interface AgentHandlerResult {
   sessionId?: string;
   sentMessages: number;
   toolsUsed: string[];
+  hadError?: boolean;
 }
 
 export async function handleAgentQuery(options: AgentHandlerOptions): Promise<AgentHandlerResult> {
@@ -50,6 +52,7 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
   let sentMessages = 0;
   let isStreaming = false;
   let typingInterval: NodeJS.Timeout | null = null;
+  let hadError = false;
 
   // Helper to send message
   const sendMessage = async (text: string) => {
@@ -157,6 +160,18 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
       console.log(`[${new Date().toISOString()}] Tool result:`, JSON.stringify(message, null, 2));
       stopTypingIndicator(typingInterval);
       typingInterval = null;
+
+      // Check for session limit error
+      if (isSessionLimitError(message)) {
+        const errorMessage = getSessionLimitMessage(message);
+        console.log(`[${new Date().toISOString()}] Session limit error detected: ${errorMessage}`);
+        // Clear accumulated text to prevent sending error message twice
+        accumulatedText = '';
+        hadError = true;
+        await handleSessionLimitError(ctx, errorMessage);
+        // Break out of the loop since we can't continue
+        break;
+      }
     }
   }
 
@@ -179,5 +194,6 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
     sessionId: currentSessionId,
     sentMessages,
     toolsUsed,
+    hadError,
   };
 }

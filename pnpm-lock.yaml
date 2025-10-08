@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.1.5
-        version: 0.1.5
+        specifier: ^0.1.10
+        version: 0.1.10(zod@3.25.76)
       '@elevenlabs/elevenlabs-js':
         specifier: ^2.17.0
         version: 2.17.0
@@ -78,9 +78,11 @@ importers:
 
 packages:
 
-  '@anthropic-ai/claude-agent-sdk@0.1.5':
-    resolution: {integrity: sha512-w6S3FTYmb72sU0RBcf7Sly22sBVXY0BpsF7PWzdamE8cuJiiA4agjhP6WLCJvybeInqP2k1VOWIfBsVsTXOHlQ==}
+  '@anthropic-ai/claude-agent-sdk@0.1.10':
+    resolution: {integrity: sha512-FDcJ0VI4x5u8/QRNJsYn+UnNqbVZMaf/DTHwJSaq+v3CqW8m+rW529H/DzGraw2F8YT9WqnJ9LCQdtPf9J5BNQ==}
     engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.24.1
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -1045,7 +1047,9 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/claude-agent-sdk@0.1.5':
+  '@anthropic-ai/claude-agent-sdk@0.1.10(zod@3.25.76)':
+    dependencies:
+      zod: 3.25.76
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5

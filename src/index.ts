@@ -79,8 +79,8 @@ bot.on('message:text', async (ctx) => {
       await saveSession(chatId, result.sessionId);
     }
 
-    // If no messages were sent, send error
-    if (result.sentMessages === 0) {
+    // If no messages were sent and no error was already handled, send error
+    if (result.sentMessages === 0 && !result.hadError) {
       await ctx.reply('Sorry, I couldn\'t generate a response.');
       console.log(`[${new Date().toISOString()}] No response generated`);
     }
@@ -149,8 +149,8 @@ bot.on('message:voice', async (ctx) => {
       console.log(`[${new Date().toISOString()}] Tools used: ${result.toolsUsed.join(', ')}`);
     }
 
-    // If no messages were sent (besides transcription), send error
-    if (result.sentMessages === 0) {
+    // If no messages were sent (besides transcription) and no error was already handled, send error
+    if (result.sentMessages === 0 && !result.hadError) {
       await ctx.reply('Sorry, I couldn\'t generate a response.');
     }
   } catch (error) {
