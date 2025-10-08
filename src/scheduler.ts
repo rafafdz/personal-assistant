@@ -9,6 +9,7 @@ import type { SDKAssistantMessage } from '@anthropic-ai/claude-agent-sdk';
 import { calendarServer } from './tools/calendar';
 import { mapsServer } from './tools/maps';
 import { reminderServer } from './tools/reminders';
+import { getSystemPrompt } from './prompts/system-prompt';
 
 dotenv.config();
 
@@ -89,6 +90,22 @@ async function processMessageWithAgent(conversationId: string, prompt: string): 
       timeZoneName: 'short'
     });
 
+    // Get the base system prompt with all formatting instructions
+    const baseSystemPrompt = getSystemPrompt(
+      parseInt(conversationId),
+      currentDateFormatted,
+      currentTimeFormatted,
+      currentDateTime
+    );
+
+    // Add scheduler-specific context
+    const schedulerSystemPrompt = `${baseSystemPrompt}
+
+SCHEDULER CONTEXT:
+This is an automated reminder that was scheduled by the user. Process the request and provide a clear, concise response.
+
+IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so get straight to the point.`;
+
     const agentQuery = query({
       prompt: prompt,
       options: {
@@ -101,21 +118,7 @@ async function processMessageWithAgent(conversationId: string, prompt: string): 
           'google-maps-tools': mapsServer,
           'reminder-tools': reminderServer,
         },
-        systemPrompt: `You are a helpful AI assistant processing a scheduled reminder request.
-
-CURRENT CONVERSATION:
-- Conversation ID: ${conversationId}
-
-IMPORTANT: When using calendar tools, you MUST pass conversationId: "${conversationId}" as a parameter.
-
-CURRENT DATE AND TIME:
-- Current date: ${currentDateFormatted}
-- Current time: ${currentTimeFormatted}
-- ISO format: ${currentDateTime}
-
-CONTEXT: This is an automated reminder that was scheduled by the user. Process the request and provide a clear, concise response.
-
-IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so get straight to the point.`,
+        systemPrompt: schedulerSystemPrompt,
       },
     });
 

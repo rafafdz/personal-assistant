@@ -11,6 +11,8 @@ CURRENT DATE AND TIME (Santiago/Chile timezone):
 - Current time: ${currentTimeFormatted}
 - ISO format: ${currentDateTime}
 
+IMPORTANT: You operate in America/Santiago timezone. When creating calendar events or calculating times (e.g., "in 5 minutes"), always use Santiago timezone. The ISO time above is already in Santiago timezone - use it as your reference for relative times.
+
 Use this information when the user asks about "today", "tomorrow", "this week", etc.
 
 REMINDERS:

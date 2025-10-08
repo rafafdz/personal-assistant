@@ -270,16 +270,25 @@ const calendarEventsSchema = {
 // Tool to get current date and time
 const getCurrentDateTimeTool = tool(
   'get_current_datetime',
-  'Get current date/time in Santiago timezone',
+  'Get current date/time in Santiago timezone. Use this if you need to calculate relative times (e.g., "in 5 minutes", "in 2 hours"). Returns ISO format without timezone suffix, suitable for use in create_calendar_event.',
   {},
   async () => {
     const now = new Date();
-    const iso = now.toLocaleString('sv-SE', { timeZone: 'America/Santiago' }).replace(' ', 'T');
+    const iso = now.toLocaleString('sv-SE', {
+      timeZone: 'America/Santiago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(' ', 'T');
 
     return {
       content: [{
         type: 'text',
-        text: iso,
+        text: `Current time in Santiago: ${iso}\n\nYou can use this as a base for calculating relative times. For example, if the user says "in 5 minutes", add 5 minutes to this time.`,
       }],
     };
   }
@@ -535,13 +544,13 @@ const getCalendarEventsTool = tool(
 // Tool to create calendar event
 const createCalendarEventTool = tool(
   'create_calendar_event',
-  'Create a new event in Google Calendar. If accountId is not provided, uses the default account for this conversation.',
+  'Create a new event in Google Calendar. If accountId is not provided, uses the default account for this conversation. IMPORTANT: All times must be in Santiago timezone (America/Santiago). When the user says "in 5 minutes" or "at 3pm", calculate relative to the current Santiago time provided in your system prompt.',
   {
     conversationId: z.string().describe('Conversation/chat ID'),
     accountId: z.string().optional().describe('Account ID (if not specified, uses default account)'),
     summary: z.string().describe('Event title/summary'),
-    startDateTime: z.string().describe('Event start time in ISO format (e.g., 2025-01-15T10:00:00)'),
-    endDateTime: z.string().describe('Event end time in ISO format (e.g., 2025-01-15T11:00:00)'),
+    startDateTime: z.string().describe('Event start time in Santiago timezone, ISO format WITHOUT timezone suffix (e.g., 2025-01-15T10:00:00). Do NOT use UTC. Calculate times relative to current Santiago time from your system prompt.'),
+    endDateTime: z.string().describe('Event end time in Santiago timezone, ISO format WITHOUT timezone suffix (e.g., 2025-01-15T11:00:00). Do NOT use UTC. Calculate times relative to current Santiago time from your system prompt.'),
     description: z.string().optional().describe('Event description'),
     location: z.string().optional().describe('Event location'),
     calendarId: z.string().optional().describe('Calendar ID (if not specified, uses default calendar)'),
@@ -625,14 +634,14 @@ const createCalendarEventTool = tool(
 // Tool to edit calendar event
 const editCalendarEventTool = tool(
   'edit_calendar_event',
-  'Update an existing event in Google Calendar. You can update any fields. If accountId is not provided, uses the default account.',
+  'Update an existing event in Google Calendar. You can update any fields. If accountId is not provided, uses the default account. IMPORTANT: All times must be in Santiago timezone (America/Santiago).',
   {
     conversationId: z.string().describe('Conversation/chat ID'),
     accountId: z.string().optional().describe('Account ID (if not specified, uses default account)'),
     eventId: z.string().describe('Event ID to update'),
     summary: z.string().optional().describe('New event title/summary'),
-    startDateTime: z.string().optional().describe('New start time in ISO format'),
-    endDateTime: z.string().optional().describe('New end time in ISO format'),
+    startDateTime: z.string().optional().describe('New start time in Santiago timezone, ISO format WITHOUT timezone suffix (e.g., 2025-01-15T10:00:00). Calculate relative to current Santiago time from system prompt.'),
+    endDateTime: z.string().optional().describe('New end time in Santiago timezone, ISO format WITHOUT timezone suffix (e.g., 2025-01-15T11:00:00). Calculate relative to current Santiago time from system prompt.'),
     description: z.string().optional().describe('New event description'),
     location: z.string().optional().describe('New event location'),
     calendarId: z.string().optional().describe('Calendar ID (if not specified, uses default calendar)'),

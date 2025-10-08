@@ -66,17 +66,17 @@ RUN npm install -g pnpm@latest && \
 # Install only production dependencies (ignore scripts to skip lefthook install)
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Copy built application from builder stage
+# Create a non-root user for security
+RUN useradd -m -u 1001 appuser
+
+# Switch to non-root user before copying
+USER appuser
+
+# Copy built application from builder stage (will be owned by appuser)
 COPY --from=builder /app/dist ./dist
 
-# Copy database migrations
+# Copy database migrations (will be owned by appuser)
 COPY src/db/migrations ./src/db/migrations
-
-# Create a non-root user for security
-RUN useradd -m -u 1001 appuser && \
-    chown -R appuser:appuser /app
-
-USER appuser
 
 # Expose port (if needed for health checks)
 EXPOSE 3000

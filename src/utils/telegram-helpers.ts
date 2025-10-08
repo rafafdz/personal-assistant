@@ -54,8 +54,18 @@ export function getCurrentSantiagoTime() {
     timeZone: timezone
   });
 
-  const nowInSantiago = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-  const currentDateTime = nowInSantiago.toISOString().replace('Z', '');
+  // Use the Swedish locale format which gives us YYYY-MM-DD HH:mm:ss, then replace space with T
+  // This ensures we get the actual local time in Santiago, not a converted UTC time
+  const currentDateTime = now.toLocaleString('sv-SE', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(' ', 'T');
 
   return { currentDateFormatted, currentTimeFormatted, currentDateTime };
 }
