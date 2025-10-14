@@ -1,11 +1,12 @@
 import type { Context } from 'grammy';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { SDKAssistantMessage, SDKSystemMessage, SDKPartialAssistantMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { SDKAssistantMessage, SDKSystemMessage, SDKPartialAssistantMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import * as fs from 'fs';
 import { calendarServer } from '../tools/calendar';
 import { mapsServer } from '../tools/maps';
 import { reminderServer } from '../tools/reminders';
 import { getSystemPrompt } from '../prompts/system-prompt';
-import { sendTelegramMessage, startTypingIndicator, stopTypingIndicator, getCurrentSantiagoTime } from '../utils/telegram-helpers';
+import { sendTelegramMessage, startTypingIndicator, stopTypingIndicator } from '../utils/telegram-helpers';
 import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from '../utils/agent-error-handler';
 
 interface AgentHandlerOptions {
@@ -13,6 +14,7 @@ interface AgentHandlerOptions {
   chatId: number;
   userMessage: string;
   existingSession?: string;
+  imagePaths?: string[];
 }
 
 interface AgentHandlerResult {
@@ -23,14 +25,53 @@ interface AgentHandlerResult {
 }
 
 export async function handleAgentQuery(options: AgentHandlerOptions): Promise<AgentHandlerResult> {
-  const { ctx, chatId, userMessage, existingSession } = options;
+  const { ctx, chatId, userMessage, existingSession, imagePaths } = options;
 
-  // Get current time
-  const { currentDateFormatted, currentTimeFormatted, currentDateTime } = getCurrentSantiagoTime();
+  // Build prompt - either simple string or async generator for multimodal
+  let prompt: string | AsyncIterable<SDKUserMessage>;
+
+  if (imagePaths && imagePaths.length > 0) {
+    // Create an async generator that yields a single user message with images
+    async function* imageMessageGenerator(): AsyncGenerator<SDKUserMessage> {
+      const content: Array<any> = [];
+
+      // Add images first
+      for (const imagePath of imagePaths!) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/jpeg',
+            data: fs.readFileSync(imagePath).toString('base64'),
+          },
+        });
+      }
+
+      // Add text message
+      content.push({
+        type: 'text',
+        text: userMessage,
+      });
+
+      yield {
+        type: 'user' as const,
+        session_id: existingSession || '',
+        message: {
+          role: 'user' as const,
+          content,
+        },
+        parent_tool_use_id: null,
+      };
+    }
+
+    prompt = imageMessageGenerator();
+  } else {
+    prompt = userMessage;
+  }
 
   // Call Claude Agent SDK
   const agentQuery = query({
-    prompt: userMessage,
+    prompt,
     options: {
       model: 'claude-sonnet-4-5',
       maxTurns: 100,
@@ -42,7 +83,7 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
         'google-maps-tools': mapsServer,
         'reminder-tools': reminderServer,
       },
-      systemPrompt: getSystemPrompt(chatId, currentDateFormatted, currentTimeFormatted, currentDateTime),
+      systemPrompt: getSystemPrompt(),
     },
   });
 

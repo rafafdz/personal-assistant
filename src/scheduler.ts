@@ -77,27 +77,8 @@ async function processMessageWithAgent(conversationId: string, prompt: string): 
       console.log(`[Scheduler] No existing session ID found, will create new session`);
     }
 
-    const now = new Date();
-    const currentDateTime = now.toISOString();
-    const currentDateFormatted = now.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    const currentTimeFormatted = now.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    });
-
     // Get the base system prompt with all formatting instructions
-    const baseSystemPrompt = getSystemPrompt(
-      parseInt(conversationId),
-      currentDateFormatted,
-      currentTimeFormatted,
-      currentDateTime
-    );
+    const baseSystemPrompt = getSystemPrompt();
 
     // Add scheduler-specific context
     const schedulerSystemPrompt = `${baseSystemPrompt}
