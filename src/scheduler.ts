@@ -2,15 +2,8 @@ import cron from 'node-cron';
 import dotenv from 'dotenv';
 import { db } from './db/client';
 import { reminders, conversations } from './db/schema';
-import { eq, and, lte } from 'drizzle-orm';
-import { add, parseISO } from 'date-fns';
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { SDKAssistantMessage } from '@anthropic-ai/claude-agent-sdk';
-import { calendarServer } from './tools/calendar';
-import { mapsServer } from './tools/maps';
-import { reminderServer } from './tools/reminders';
-import { getSystemPrompt } from './prompts/system-prompt';
-import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from './utils/agent-error-handler';
+import { eq } from 'drizzle-orm';
+import { handleSchedulerAgentQuery } from './handlers/scheduler-agent-handler';
 
 dotenv.config();
 
@@ -58,128 +51,39 @@ async function sendTelegramMessage(chatId: string, message: string) {
 
 // Process message with AI agent
 async function processMessageWithAgent(conversationId: string, prompt: string): Promise<string | null> {
-  console.log(`[Scheduler] Processing message with agent for conversation ${conversationId}`);
-  console.log(`[Scheduler] Prompt: "${prompt}"`);
+  // Retrieve session ID from database for conversation continuity
+  const conversationRecord = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
 
-  try {
-    // Retrieve session ID from database for conversation continuity
-    const conversationRecord = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.id, conversationId))
-      .limit(1);
+  const sessionId = conversationRecord.length > 0 ? conversationRecord[0].sessionId : undefined;
 
-    const sessionId = conversationRecord.length > 0 ? conversationRecord[0].sessionId : undefined;
+  // Use the shared scheduler agent handler
+  const result = await handleSchedulerAgentQuery({
+    conversationId,
+    prompt,
+    existingSession: sessionId ?? undefined,
+  });
 
-    if (sessionId) {
-      console.log(`[Scheduler] Using existing session ID: ${sessionId}`);
-    } else {
-      console.log(`[Scheduler] No existing session ID found, will create new session`);
-    }
-
-    // Get the base system prompt with all formatting instructions
-    const baseSystemPrompt = getSystemPrompt();
-
-    // Add scheduler-specific context
-    const schedulerSystemPrompt = `${baseSystemPrompt}
-
-SCHEDULER CONTEXT:
-This is an automated reminder that was scheduled by the user. Process the request and provide a clear, concise response.
-
-IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so get straight to the point.`;
-
-    const agentQuery = query({
-      prompt: prompt,
-      options: {
-        model: 'claude-sonnet-4-5',
-        maxTurns: 50,
-        permissionMode: 'bypassPermissions',
-        resume: sessionId ?? undefined, // Use existing session for conversation continuity
-        mcpServers: {
-          'google-calendar-tools': calendarServer,
-          'google-maps-tools': mapsServer,
-          'reminder-tools': reminderServer,
-        },
-        systemPrompt: schedulerSystemPrompt,
+  // Store new session ID if we got one
+  if (result.sessionId && result.sessionId !== sessionId) {
+    console.log(`[Scheduler] Storing new session ID ${result.sessionId} for conversation ${conversationId}`);
+    await db.insert(conversations).values({
+      id: conversationId,
+      sessionId: result.sessionId,
+      context: [],
+    }).onConflictDoUpdate({
+      target: conversations.id,
+      set: {
+        sessionId: result.sessionId,
+        updatedAt: new Date(),
       },
     });
-
-    let responseText = '';
-    let newSessionId: string | undefined;
-    let sessionLimitReached = false;
-
-    // Collect text from complete assistant messages only (no streaming)
-    for await (const message of agentQuery) {
-      // Capture session ID from init message
-      if (message.type === 'system') {
-        const systemMsg = message as any;
-        if (systemMsg.subtype === 'init') {
-          newSessionId = systemMsg.session_id;
-          console.log(`[Scheduler] Captured session ID: ${newSessionId}`);
-        }
-      }
-
-      // Check for session limit error
-      if (message.type === 'result' && isSessionLimitError(message)) {
-        const errorMessage = getSessionLimitMessage(message);
-        console.log(`[Scheduler] Session limit error detected: ${errorMessage}`);
-        await handleSessionLimitError(null, errorMessage, conversationId);
-        sessionLimitReached = true;
-        break;
-      }
-
-      if (message.type === 'assistant') {
-        const assistantMsg = message as SDKAssistantMessage;
-        for (const block of assistantMsg.message.content) {
-          if (block.type === 'text') {
-            responseText += block.text;
-          }
-        }
-      }
-    }
-
-    // If session limit was reached, return null
-    if (sessionLimitReached) {
-      return null;
-    }
-
-    // Store new session ID if we got one
-    if (newSessionId && newSessionId !== sessionId) {
-      console.log(`[Scheduler] Storing new session ID ${newSessionId} for conversation ${conversationId}`);
-      await db.insert(conversations).values({
-        id: conversationId,
-        sessionId: newSessionId,
-        context: [],
-      }).onConflictDoUpdate({
-        target: conversations.id,
-        set: {
-          sessionId: newSessionId,
-          updatedAt: new Date(),
-        },
-      });
-    }
-
-    const trimmedResponse = responseText.trim();
-
-    if (!trimmedResponse) {
-      console.warn(`[Scheduler] Agent returned empty response for conversation ${conversationId}`);
-      return null;
-    }
-
-    console.log(`[Scheduler] Agent response length: ${trimmedResponse.length} characters`);
-    console.log(`[Scheduler] Agent response preview: "${trimmedResponse.substring(0, 200)}..."`);
-
-    return trimmedResponse;
-  } catch (error: any) {
-    console.error(`[Scheduler] Error processing message with agent for conversation ${conversationId}`);
-    console.error(`[Scheduler] Error details:`, {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
-
-    return null;
   }
+
+  return result.responseText;
 }
 
 // Helper to check if a cron expression matches the current time
@@ -193,7 +97,7 @@ function cronMatchesTime(cronExpression: string, date: Date): boolean {
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
-  const matches = (cronPart: string, value: number, max: number): boolean => {
+  const matches = (cronPart: string, value: number): boolean => {
     // * matches everything
     if (cronPart === '*') return true;
 
@@ -219,11 +123,11 @@ function cronMatchesTime(cronExpression: string, date: Date): boolean {
   };
 
   return (
-    matches(minute, date.getMinutes(), 59) &&
-    matches(hour, date.getHours(), 23) &&
-    matches(dayOfMonth, date.getDate(), 31) &&
-    matches(month, date.getMonth() + 1, 12) && // Month is 0-indexed in JS
-    matches(dayOfWeek, date.getDay(), 6) // 0 = Sunday
+    matches(minute, date.getMinutes()) &&
+    matches(hour, date.getHours()) &&
+    matches(dayOfMonth, date.getDate()) &&
+    matches(month, date.getMonth() + 1) && // Month is 0-indexed in JS
+    matches(dayOfWeek, date.getDay()) // 0 = Sunday
   );
 }
 

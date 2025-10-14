@@ -2,11 +2,7 @@ import type { Context } from 'grammy';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SDKAssistantMessage, SDKSystemMessage, SDKPartialAssistantMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import * as fs from 'fs';
-import { calendarServer } from '../tools/calendar';
-import { mapsServer } from '../tools/maps';
-import { reminderServer } from '../tools/reminders';
-import { spotifyServer } from '../tools/spotify';
-import { getSystemPrompt } from '../prompts/system-prompt';
+import { getAgentConfig } from '../config/agent-config';
 import { sendTelegramMessage, startTypingIndicator, stopTypingIndicator } from '../utils/telegram-helpers';
 import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from '../utils/agent-error-handler';
 
@@ -16,6 +12,7 @@ interface AgentHandlerOptions {
   userMessage: string;
   existingSession?: string;
   imagePaths?: string[];
+  additionalInstructions?: string;
 }
 
 interface AgentHandlerResult {
@@ -26,7 +23,7 @@ interface AgentHandlerResult {
 }
 
 export async function handleAgentQuery(options: AgentHandlerOptions): Promise<AgentHandlerResult> {
-  const { ctx, chatId, userMessage, existingSession, imagePaths } = options;
+  const { ctx, userMessage, existingSession, imagePaths, additionalInstructions } = options;
 
   // Build prompt - either simple string or async generator for multimodal
   let prompt: string | AsyncIterable<SDKUserMessage>;
@@ -70,22 +67,12 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
     prompt = userMessage;
   }
 
-  // Call Claude Agent SDK
+  // Call Claude Agent SDK with shared configuration
   const agentQuery = query({
     prompt,
     options: {
-      model: 'claude-sonnet-4-5',
-      maxTurns: 100,
-      permissionMode: 'bypassPermissions',
+      ...getAgentConfig({ additionalInstructions }),
       resume: existingSession,
-      includePartialMessages: true,
-      mcpServers: {
-        'google-calendar-tools': calendarServer,
-        'google-maps-tools': mapsServer,
-        'reminder-tools': reminderServer,
-        'spotify': spotifyServer,
-      },
-      systemPrompt: getSystemPrompt(),
     },
   });
 
