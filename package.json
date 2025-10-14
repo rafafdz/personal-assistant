@@ -32,9 +32,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.10",
+    "@anthropic-ai/claude-agent-sdk": "^0.1.14",
     "@elevenlabs/elevenlabs-js": "^2.17.0",
     "@googlemaps/google-maps-services-js": "^3.4.2",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.4.5",

@@ -18,7 +18,7 @@ bot.api.setMyCommands([
 // Command to reset conversation history
 bot.command('reset', async (ctx) => {
   const chatId = ctx.chat.id;
-  const hadSession = clearSession(chatId);
+  const hadSession = await clearSession(chatId);
 
   console.log(`[${new Date().toISOString()}] Session reset for chat ${chatId}`);
 

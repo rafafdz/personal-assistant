@@ -41,6 +41,18 @@ export const calendars = pgTable('calendars', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const spotifyTokens = pgTable('spotify_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  conversationId: text('conversation_id').notNull().unique().references(() => conversations.id, { onDelete: 'cascade' }),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiryDate: bigint('expiry_date', { mode: 'number' }).notNull(),
+  scope: text('scope'),
+  tokenType: text('token_type'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const reminders = pgTable('reminders', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),

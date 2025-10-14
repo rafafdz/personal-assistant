@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { calendarServer } from '../tools/calendar';
 import { mapsServer } from '../tools/maps';
 import { reminderServer } from '../tools/reminders';
+import { spotifyServer } from '../tools/spotify';
 import { getSystemPrompt } from '../prompts/system-prompt';
 import { sendTelegramMessage, startTypingIndicator, stopTypingIndicator } from '../utils/telegram-helpers';
 import { isSessionLimitError, getSessionLimitMessage, handleSessionLimitError } from '../utils/agent-error-handler';
@@ -82,6 +83,7 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
         'google-calendar-tools': calendarServer,
         'google-maps-tools': mapsServer,
         'reminder-tools': reminderServer,
+        'spotify': spotifyServer,
       },
       systemPrompt: getSystemPrompt(),
     },

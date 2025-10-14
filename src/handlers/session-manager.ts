@@ -47,6 +47,18 @@ export async function saveSession(chatId: number, sessionId: string): Promise<vo
   console.log(`[${new Date().toISOString()}] Stored session ${sessionId} for chat ${chatId} in database`);
 }
 
-export function clearSession(chatId: number): boolean {
-  return chatSessions.delete(chatId);
+export async function clearSession(chatId: number): Promise<boolean> {
+  const hadSession = chatSessions.delete(chatId);
+
+  // Also clear session ID from database
+  await db.update(conversations)
+    .set({
+      sessionId: null,
+      updatedAt: new Date()
+    })
+    .where(eq(conversations.id, chatId.toString()));
+
+  console.log(`[${new Date().toISOString()}] Cleared session for chat ${chatId} from memory and database`);
+
+  return hadSession;
 }
