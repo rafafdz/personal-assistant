@@ -24,6 +24,8 @@ export interface AgentConfigOptions {
   includePartialMessages?: boolean;
   /** Maximum number of turns the agent can take */
   maxTurns?: number;
+  /** Conversation/chat ID for this session */
+  conversationId?: string;
 }
 
 /**
@@ -34,10 +36,19 @@ export function getAgentConfig(options: AgentConfigOptions = {}) {
     additionalInstructions,
     includePartialMessages = true,
     maxTurns = 100,
+    conversationId,
   } = options;
 
   // Get base system prompt
   let systemPrompt = getSystemPrompt();
+
+  // Add conversation ID context if provided
+  if (conversationId) {
+    systemPrompt = `${systemPrompt}\n\nCONVERSATION CONTEXT:
+You are currently in conversation ID: ${conversationId}
+
+IMPORTANT: When using tools that require a conversationId parameter (like create_reminder, list_reminders, etc.), you MUST use this exact conversation ID: ${conversationId}`;
+  }
 
   // Append additional instructions if provided
   if (additionalInstructions) {

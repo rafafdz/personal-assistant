@@ -44,6 +44,7 @@ IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so 
           additionalInstructions: schedulerInstructions,
           includePartialMessages: false, // No streaming for scheduler
           maxTurns: 50, // Fewer turns for scheduler
+          conversationId,
         }),
         resume: existingSession ?? undefined,
       },

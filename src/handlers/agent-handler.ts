@@ -23,7 +23,7 @@ interface AgentHandlerResult {
 }
 
 export async function handleAgentQuery(options: AgentHandlerOptions): Promise<AgentHandlerResult> {
-  const { ctx, userMessage, existingSession, imagePaths, additionalInstructions } = options;
+  const { ctx, chatId, userMessage, existingSession, imagePaths, additionalInstructions } = options;
 
   // Build prompt - either simple string or async generator for multimodal
   let prompt: string | AsyncIterable<SDKUserMessage>;
@@ -71,7 +71,10 @@ export async function handleAgentQuery(options: AgentHandlerOptions): Promise<Ag
   const agentQuery = query({
     prompt,
     options: {
-      ...getAgentConfig({ additionalInstructions }),
+      ...getAgentConfig({
+        additionalInstructions,
+        conversationId: chatId.toString(),
+      }),
       resume: existingSession,
     },
   });

@@ -195,7 +195,7 @@ async function processDueReminders() {
       console.log(`[Scheduler] Process with agent: ${reminder.processWithAgent}`);
       console.log(`[Scheduler] Cron expression: ${reminder.cronExpression || 'none (one-time)'}`);
 
-      let messageText: string;
+      let messageSent = false;
 
       if (reminder.processWithAgent) {
         // Process the message with the agent first
@@ -206,15 +206,40 @@ async function processDueReminders() {
           continue;
         }
 
-        messageText = `🔔 *Scheduled Update*\n\n${agentResponse}`;
+        // Split the agent response by ---SPLIT--- token
+        const messageParts = agentResponse.split('---SPLIT---').map(part => part.trim()).filter(part => part.length > 0);
+
+        // Send each part as a separate message
+        let allSent = true;
+        for (let i = 0; i < messageParts.length; i++) {
+          const prefix = i === 0 ? '🔔 *Scheduled Update*\n\n' : '';
+          const sent = await sendTelegramMessage(reminder.conversationId, `${prefix}${messageParts[i]}`);
+          if (!sent) {
+            allSent = false;
+            break;
+          }
+        }
+
+        if (!allSent) {
+          console.error(`[Scheduler] Failed to send all message parts for reminder ${reminder.id}, will retry later`);
+          continue;
+        }
+
+        messageSent = true;
       } else {
         // Send the message as-is
-        messageText = `🔔 *Reminder*\n\n${reminder.message}`;
+        const messageText = `🔔 *Reminder*\n\n${reminder.message}`;
+        const sent = await sendTelegramMessage(reminder.conversationId, messageText);
+
+        if (!sent) {
+          console.error(`[Scheduler] Failed to send reminder ${reminder.id}, will retry later`);
+          continue;
+        }
+
+        messageSent = true;
       }
 
-      const sent = await sendTelegramMessage(reminder.conversationId, messageText);
-
-      if (!sent) {
+      if (!messageSent) {
         console.error(`[Scheduler] Failed to send reminder ${reminder.id}, will retry later`);
         continue;
       }
