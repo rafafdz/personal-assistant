@@ -31,19 +31,12 @@ export async function handleSchedulerAgentQuery(options: SchedulerAgentHandlerOp
   }
 
   try {
-    const schedulerInstructions = `SCHEDULER CONTEXT:
-This is an automated reminder that was scheduled by the user. Process the request and provide a clear, concise response.
-
-IMPORTANT: Keep responses concise and focused. This is a scheduled reminder, so get straight to the point.`;
-
     // Call Claude Agent SDK with shared configuration
     const agentQuery = query({
       prompt,
       options: {
         ...getAgentConfig({
-          additionalInstructions: schedulerInstructions,
           includePartialMessages: false, // No streaming for scheduler
-          maxTurns: 50, // Fewer turns for scheduler
           conversationId,
         }),
         resume: existingSession ?? undefined,
